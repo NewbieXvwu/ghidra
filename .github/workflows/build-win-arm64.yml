@@ -33,13 +33,17 @@ jobs:
           $settings = $settings -replace "includeProjects\('Ghidra/Test'\)", "includeProject('IntegrationTest', 'Ghidra/Test', true)"
           $settings | Set-Content "$pwd\settings.gradle"
 
-      - name: Patch fetchDependencies.gradle
+      - name: Patch build scripts for fetchDependencies
         shell: pwsh
         run: |
           # Fix yajsw URL: SourceForge needs /download suffix or it returns HTML
           $f = Get-Content "$pwd\gradle\support\fetchDependencies.gradle" -Raw
           $f = $f -replace '"https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-13.18/yajsw-stable-13.18.zip"', '"https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-13.18/yajsw-stable-13.18.zip/download"'
           $f | Set-Content "$pwd\gradle\support\fetchDependencies.gradle"
+          # Remove jsondoc dependency on :Doclets (not needed for deps fetch, causes evaluation failure)
+          $d = Get-Content "$pwd\gradle\root\distribution.gradle" -Raw
+          $d = $d -replace "jsondoc project\('Doclets'\)", '// jsondoc project("Doclets")'
+          $d | Set-Content "$pwd\gradle\root\distribution.gradle"
 
       - name: Fetch dependencies (Gradle init script)
         shell: pwsh
