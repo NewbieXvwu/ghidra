@@ -95,6 +95,24 @@ task extractSevenZipNativeLibs(type: Copy) {
     }   
 }
 
+// Run an external process, fully draining stdout/stderr to avoid pipe deadlocks.
+// Returns [exitCode, combinedOutput]
+def runProcess(List cmd, File workDir) {
+	def pb = new ProcessBuilder(cmd)
+	if (workDir != null) {
+		pb.directory(workDir)
+	}
+	pb.redirectErrorStream(true)
+	def proc = pb.start()
+	def out = new StringBuilder()
+	proc.inputStream.eachLine { line ->
+		out.append(line).append('\n')
+		logger.lifecycle(line)
+	}
+	proc.waitFor()
+	return [proc.exitValue(), out.toString()]
+}
+
 // Build sevenzipjbinding native library for Windows ARM64 from source.
 // Upstream does not ship a Windows ARM64 binary, so we cross-compile it
 // from the sevenzipjbinding GitHub source using CMake + Visual Studio.
@@ -116,16 +134,15 @@ task buildSevenZipWinARM64 {
 		def outputDir = project.file("build/data/sevenzipnativelibs/Windows-amd64")
 		
 		// Check cmake availability
-		def cmakeCheck = [ 'cmake', '--version' ].execute()
-		cmakeCheck.waitFor()
-		if (cmakeCheck.exitValue() != 0) {
+		def (cmakeExit, cmakeVer) = runProcess(['cmake', '--version'], null)
+		if (cmakeExit != 0) {
 			logger.warn("cmake not found, skipping Windows ARM64 7-Zip native build. " +
 				"Install CMake (choco install cmake) and ensure it is in PATH.")
 			return
 		}
 		
 		// Download source
-		if (!srcArchive.exists()) {
+		if (!srcArchive.exists() || srcArchive.length() < 1000) {
 			def srcUrl = "https://github.com/borisbrodski/sevenzipjbinding/archive/refs/tags/Release-${gitTag}.tar.gz"
 			logger.lifecycle("Downloading sevenzipjbinding source from {} ...", srcUrl)
 			srcArchive.parentFile.mkdirs()
@@ -133,35 +150,52 @@ task buildSevenZipWinARM64 {
 		}
 		
 		// Extract source
-		if (!srcDir.exists()) {
+		if (!new File(srcDir, "CMakeLists.txt").exists()) {
+			if (srcDir.exists()) {
+				srcDir.deleteDir()
+			}
 			srcDir.parentFile.mkdirs()
 			project.ant.untar(src: srcArchive, dest: srcDir.parentFile, compression: "gzip")
 			def extracted = new File(srcDir.parentFile, "sevenzipjbinding-Release-${gitTag}")
 			if (extracted.exists()) {
+				if (srcDir.exists()) {
+					srcDir.deleteDir()
+				}
 				extracted.renameTo(srcDir)
 			}
 		}
+		if (!new File(srcDir, "CMakeLists.txt").exists()) {
+			logger.warn("sevenzipjbinding source missing CMakeLists.txt at {}, skipping.", srcDir)
+			return
+		}
+		logger.lifecycle("sevenzipjbinding source ready at {}", srcDir)
 		
 		// Configure CMake for ARM64
+		if (cmakeBuildDir.exists()) {
+			cmakeBuildDir.deleteDir()
+		}
 		cmakeBuildDir.mkdirs()
 		logger.lifecycle("Configuring sevenzipjbinding CMake for Windows ARM64 ...")
-		def cfg = [ 'cmake', "-G", "Visual Studio 17 2022", "-A", "ARM64",
+		def (cfgExit, cfgOut) = runProcess([
+			'cmake',
+			"-G", "Visual Studio 17 2022",
+			"-A", "ARM64",
 			"-DCMAKE_BUILD_TYPE=Release",
 			"-DJAVA_HOME=${project.JAVA_HOME}",
-			srcDir.toString() ].execute(null, cmakeBuildDir)
-		cfg.waitFor()
-		if (cfg.exitValue() != 0) {
-			logger.warn("CMake configure failed for Windows ARM64 (VS 2022 may not be installed), " +
-				"skipping native 7-Zip ARM64 build.")
+			srcDir.absolutePath
+		], cmakeBuildDir)
+		if (cfgExit != 0) {
+			logger.warn("CMake configure failed for Windows ARM64 7-Zip (exit {}).", cfgExit)
 			return
 		}
 		
 		// Build
 		logger.lifecycle("Building sevenzipjbinding for Windows ARM64 (this may take a few minutes) ...")
-		def build = [ 'cmake', '--build', '.', '--config', 'Release', '--target', 'SevenZipJBinding' ].execute(null, cmakeBuildDir)
-		build.waitFor()
-		if (build.exitValue() != 0) {
-			logger.warn("CMake build failed for Windows ARM64 7-Zip native library.")
+		def (buildExit, buildOut) = runProcess([
+			'cmake', '--build', '.', '--config', 'Release', '--target', 'SevenZipJBinding'
+		], cmakeBuildDir)
+		if (buildExit != 0) {
+			logger.warn("CMake build failed for Windows ARM64 7-Zip native library (exit {}).", buildExit)
 			return
 		}
 		
@@ -170,10 +204,18 @@ task buildSevenZipWinARM64 {
 		// so this ARM64 DLL will be loaded when running on ARM64 Windows.
 		outputDir.mkdirs()
 		def src7z = new File("${cmakeBuildDir}/bin/Release/7-Zip-JBinding.dll")
-		if (src7z.exists()) {
-			new File(outputDir, "7-Zip-JBinding.dll").bytes = src7z.bytes
+		if (!src7z.exists()) {
+			// Fallback: search the build tree
+			src7z = fileTree(cmakeBuildDir) {
+				include "**/7-Zip-JBinding.dll"
+			}.files.find { true }
 		}
-		logger.lifecycle("Windows ARM64 7-Zip native library built and installed successfully.")
+		if (src7z == null || !src7z.exists()) {
+			logger.warn("7-Zip-JBinding.dll not found after build under {}", cmakeBuildDir)
+			return
+		}
+		new File(outputDir, "7-Zip-JBinding.dll").bytes = src7z.bytes
+		logger.lifecycle("Windows ARM64 7-Zip native library built and installed from {}.", src7z)
 	}
 }
 
