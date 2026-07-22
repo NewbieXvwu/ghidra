@@ -67,7 +67,9 @@ jobs:
 
       - name: Build Ghidra
         shell: pwsh
-        run: gradle buildGhidra -x createJavadocs -x createJsondocs -x createPythonTypeStubs -x createGhidraStubsWheel --no-daemon
+        run: |
+          pip install setuptools wheel --quiet
+          gradle buildGhidra -x createJavadocs -x createJsondocs -x createPythonTypeStubs -x createGhidraStubsWheel --no-daemon
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
