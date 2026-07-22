@@ -110,13 +110,13 @@ task buildSevenZipWinARM64 {
 		}
 		
 		def gitTag = "16.02-2.01"
-		def srcArchive = file("${buildDir}/sevenzip-src.tar.gz")
-		def srcDir = file("${buildDir}/sevenzip-src")
-		def cmakeBuildDir = file("${buildDir}/sevenzip-arm64")
-		def outputDir = file("build/data/sevenzipnativelibs/Windows-amd64")
+		def srcArchive = project.file("${buildDir}/sevenzip-src.tar.gz")
+		def srcDir = project.file("${buildDir}/sevenzip-src")
+		def cmakeBuildDir = project.file("${buildDir}/sevenzip-arm64")
+		def outputDir = project.file("build/data/sevenzipnativelibs/Windows-amd64")
 		
 		// Check cmake availability
-		def cmakeCheck = exec {
+		def cmakeCheck = project.exec {
 			commandLine 'cmake', '--version'
 			ignoreExitValue true
 		}
@@ -147,7 +147,7 @@ task buildSevenZipWinARM64 {
 		// Configure CMake for ARM64
 		cmakeBuildDir.mkdirs()
 		logger.lifecycle("Configuring sevenzipjbinding CMake for Windows ARM64 ...")
-		def cfg = exec {
+		def cfg = project.exec {
 			workingDir cmakeBuildDir
 			commandLine 'cmake',
 				"-G", "Visual Studio 17 2022",
@@ -165,7 +165,7 @@ task buildSevenZipWinARM64 {
 		
 		// Build
 		logger.lifecycle("Building sevenzipjbinding for Windows ARM64 (this may take a few minutes) ...")
-		def build = exec {
+		def build = project.exec {
 			workingDir cmakeBuildDir
 			commandLine 'cmake', '--build', '.', '--config', 'Release', '--target', 'SevenZipJBinding'
 			ignoreExitValue true
@@ -179,7 +179,7 @@ task buildSevenZipWinARM64 {
 		// The SevenZipCustomInitializer maps Windows-arm64 -> Windows-amd64,
 		// so this ARM64 DLL will be loaded when running on ARM64 Windows.
 		outputDir.mkdirs()
-		copy {
+		project.copy {
 			from "${cmakeBuildDir}/bin/Release/7-Zip-JBinding.dll"
 			into outputDir
 		}
@@ -187,69 +187,7 @@ task buildSevenZipWinARM64 {
 	}
 }
 
-// Build lzfse.exe for Windows ARM64 from source using CMake.
-// LZFSE is Apple's open-source compression library; the source lives under src/lzfse/c/.
-// Only runs on Windows with cmake available.
-task buildLzfseWinARM64 {
-	outputs.upToDateWhen { false }
-
-	doLast {
-		if (!System.properties['os.name'].toLowerCase().contains('windows')) {
-			return
-		}
-
-		def cmakeCheck = exec {
-			commandLine 'cmake', '--version'
-			ignoreExitValue true
-		}
-		if (cmakeCheck.exitValue != 0) {
-			logger.warn("cmake not found, skipping lzfse ARM64 native build.")
-			return
-		}
-
-		def srcDir = file('src/lzfse')
-		def cmakeBuildDir = file("${buildDir}/lzfse-arm64")
-		def outDir = file("build/os/win_arm_64")
-
-		cmakeBuildDir.mkdirs()
-		outDir.mkdirs()
-
-		logger.lifecycle("Configuring lzfse CMake for Windows ARM64 ...")
-		def cfg = exec {
-			workingDir cmakeBuildDir
-			commandLine 'cmake',
-				"-G", "Visual Studio 17 2022",
-				"-A", "ARM64",
-				"-DCMAKE_BUILD_TYPE=Release",
-				srcDir.toString()
-			ignoreExitValue true
-		}
-		if (cfg.exitValue != 0) {
-			logger.warn("CMake configure failed for Windows ARM64 lzfse, skipping.")
-			return
-		}
-
-		logger.lifecycle("Building lzfse.exe for Windows ARM64 ...")
-		def build = exec {
-			workingDir cmakeBuildDir
-			commandLine 'cmake', '--build', '.', '--config', 'Release'
-			ignoreExitValue true
-		}
-		if (build.exitValue != 0) {
-			logger.warn("CMake build failed for lzfse ARM64.")
-			return
-		}
-
-		copy {
-			from "${cmakeBuildDir}/Release/lzfse.exe"
-			into outDir
-		}
-		logger.lifecycle("lzfse.exe (ARM64) built and installed successfully.")
-	}
-}
-
 jar.dependsOn buildSevenZipWinARM64
-assemble.dependsOn buildLzfseWinARM64
 
 rootProject.prepDev.dependsOn extractSevenZipNativeLibs
 jar.dependsOn extractSevenZipNativeLibs
