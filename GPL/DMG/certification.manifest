@@ -17,3 +17,11 @@ data/os/win_x86_64/llio_i386.dll||GPL 3||||END|
 data/os/win_x86_64/llio_ia64.dll||GPL 3||||END|
 data/os/win_arm_64/llio_arm64.dll||GPL 3||||END|
 data/server_memory.cfg||Public Domain||||END|
+src/dmg/java/org/catacombae/hfsexplorer/win32/WindowsLowLevelIO.java||GPL 3||||END|
+src/llio/CMakeLists.txt||Public Domain||||END|
+src/llio/c/llio_common.c||GPL 3||||END|
+src/llio/c/llio_common.h||GPL 3||||END|
+src/llio/c/org_catacombae_hfsexplorer_win32_WindowsLowLevelIO.c||GPL 3||||END|
+src/llio/c/org_catacombae_hfsexplorer_win32_WindowsLowLevelIO.h||GPL 3||||END|
+src/llio/c/org_catacombae_hfsexplorer_win32_WritableWin32File.c||GPL 3||||END|
+src/llio/c/org_catacombae_hfsexplorer_win32_WritableWin32File.h||GPL 3||||END|
