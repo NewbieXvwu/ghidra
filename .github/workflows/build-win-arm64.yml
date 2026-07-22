@@ -19,47 +19,34 @@ jobs:
       - name: Setup Java
         run: |
           echo "JAVA_HOME=$env:JAVA_HOME_21_AARCH64" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo $env:JAVA_HOME_21_AARCH64
 
-      - name: Setup Gradle 8.12
+      - name: Generate Gradle 8.12 wrapper
         shell: pwsh
         run: |
-          $gradleVersion = "8.12"
-          $wrapperDir = "$pwd\gradle\wrapper"
-          New-Item -ItemType Directory -Force -Path $wrapperDir
-          $wrapperJarUrl = "https://raw.githubusercontent.com/gradle/gradle/v${gradleVersion}/gradle/wrapper/gradle-wrapper.jar"
-          $progressPreference = 'silentlyContinue'
-          Invoke-WebRequest -Uri $wrapperJarUrl -OutFile "$wrapperDir\gradle-wrapper.jar"
-          @"
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-${gradleVersion}-bin.zip
-          networkTimeout=10000
-          validateDistributionUrl=true
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          "@ | Out-File -FilePath "$wrapperDir\gradle-wrapper.properties" -Encoding ascii
+          $tmpDir = "$env:TEMP\gradle-gen"
+          $srcDir = "$pwd"
+          New-Item -ItemType Directory -Force -Path $tmpDir
+          Set-Location $tmpDir
+          gradle wrapper --gradle-version 8.12 --no-daemon
+          Copy-Item "$tmpDir\gradlew" "$srcDir\gradlew" -Force
+          Copy-Item "$tmpDir\gradlew.bat" "$srcDir\gradlew.bat" -Force
+          New-Item -ItemType Directory -Force -Path "$srcDir\gradle\wrapper"
+          Copy-Item "$tmpDir\gradle\wrapper\gradle-wrapper.jar" "$srcDir\gradle\wrapper\gradle-wrapper.jar" -Force
+          Copy-Item "$tmpDir\gradle\wrapper\gradle-wrapper.properties" "$srcDir\gradle\wrapper\gradle-wrapper.properties" -Force
+          Set-Location $srcDir
 
       - name: Fetch dependencies
         shell: pwsh
         run: |
-          # Download dependencies manually using PowerShell
           $depsDir = "$pwd\dependencies"
           $flatRepo = "$depsDir\flatRepo"
           New-Item -ItemType Directory -Force -Path $flatRepo
-          $downloadsDir = "$depsDir\downloads"
-          New-Item -ItemType Directory -Force -Path $downloadsDir
-
-          function Download-File($url, $outFile) {
-            Write-Host "Downloading $url"
-            $progressPreference = 'silentlyContinue'
-            Invoke-WebRequest -Uri $url -OutFile $outFile
-          }
-
-          Download-File "https://github.com/NationalSecurityAgency/ghidra-data/raw/Ghidra_12.1.2/lib/java-sarif-2.1-modified.jar" "$flatRepo\java-sarif-2.1-modified.jar"
-          Download-File "https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/android4me/AXMLPrinter2.jar" "$flatRepo\AXMLPrinter2.jar"
-          Download-File "https://github.com/NationalSecurityAgency/ghidra-data/raw/Ghidra_12.1.2/Debugger/dbgmodel.tlb" "$depsDir\Debugger-agent-dbgeng\dbgmodel.tlb"
-          Write-Host "Dependencies downloaded"
+          $dbgDir = "$depsDir\Debugger-agent-dbgeng"
+          New-Item -ItemType Directory -Force -Path $dbgDir
+          $progressPreference = 'silentlyContinue'
+          Invoke-WebRequest -Uri "https://github.com/NationalSecurityAgency/ghidra-data/raw/Ghidra_12.1.2/lib/java-sarif-2.1-modified.jar" -OutFile "$flatRepo\java-sarif-2.1-modified.jar"
+          Invoke-WebRequest -Uri "https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/android4me/AXMLPrinter2.jar" -OutFile "$flatRepo\AXMLPrinter2.jar"
+          Invoke-WebRequest -Uri "https://github.com/NationalSecurityAgency/ghidra-data/raw/Ghidra_12.1.2/Debugger/dbgmodel.tlb" -OutFile "$dbgDir\dbgmodel.tlb"
 
       - name: Build Ghidra
         shell: pwsh
