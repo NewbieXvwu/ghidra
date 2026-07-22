@@ -13,8 +13,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: Ghidra_12.1.2_build
 
       - name: Setup Java
         run: |
