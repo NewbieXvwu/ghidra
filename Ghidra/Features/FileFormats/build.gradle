@@ -98,7 +98,9 @@ task extractSevenZipNativeLibs(type: Copy) {
 // Run an external process, fully draining stdout/stderr to avoid pipe deadlocks.
 // Returns [exitCode, combinedOutput]
 def runProcess(List cmd, File workDir) {
-	def pb = new ProcessBuilder(cmd)
+	// ProcessBuilder requires a pure List<String>; GString elements cause arraycopy errors
+	List<String> args = cmd.collect { it == null ? "" : it.toString() }
+	def pb = new ProcessBuilder(args)
 	if (workDir != null) {
 		pb.directory(workDir)
 	}
