@@ -214,6 +214,14 @@ task buildSevenZipWinARM64 {
 		def javaHomeCmake = toCmakePath(project.JAVA_HOME.toString())
 		def srcDirCmake = toCmakePath(srcDir.absolutePath)
 
+		// JDK 8+ removed 'javah'. sevenzipjbinding ships pregenerated JNI headers,
+		// so provide a no-op javah that satisfies FindJavaExtended.cmake.
+		def toolsDir = project.file("${buildDir}/sevenzip-tools")
+		toolsDir.mkdirs()
+		def javahStub = new File(toolsDir, "javah.cmd")
+		javahStub.text = "@echo off\r\nrem no-op stub: headers are pregenerated in jbinding-cpp/JavaToCPP/Java/\r\nexit /b 0\r\n"
+		def javahStubCmake = toCmakePath(javahStub.absolutePath)
+
 		// Configure CMake for MinGW ARM64 (Ninja or MinGW Makefiles)
 		if (cmakeBuildDir.exists()) {
 			cmakeBuildDir.deleteDir()
@@ -233,6 +241,7 @@ task buildSevenZipWinARM64 {
 			"-DMINGW64=Yes",
 			"-DJAVA_HOME=${javaHomeCmake}",
 			"-DJAVA_JDK=${javaHomeCmake}",
+			"-DJAVA_HEADER_COMPILE=${javahStubCmake}",
 			"-DCMAKE_C_COMPILER=${mingwPrefix}clang.exe",
 			"-DCMAKE_CXX_COMPILER=${mingwPrefix}clang++.exe",
 			"-DCMAKE_RC_COMPILER=${mingwPrefix}windres.exe",
