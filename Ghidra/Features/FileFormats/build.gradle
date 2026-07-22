@@ -170,6 +170,16 @@ task buildSevenZipWinARM64 {
 			logger.warn("sevenzipjbinding source missing CMakeLists.txt at {}, skipping.", srcDir)
 			return
 		}
+		// CMake 4.x removed compatibility with cmake_minimum_required < 3.5
+		def cmakeLists = new File(srcDir, "CMakeLists.txt")
+		def cmakeListsText = cmakeLists.getText('UTF-8')
+		if (cmakeListsText.contains('CMAKE_MINIMUM_REQUIRED(VERSION 2.')) {
+			cmakeListsText = cmakeListsText.replaceFirst(
+				/CMAKE_MINIMUM_REQUIRED\(VERSION\s+[\d.]+\)/,
+				'CMAKE_MINIMUM_REQUIRED(VERSION 3.5)')
+			cmakeLists.write(cmakeListsText, 'UTF-8')
+			logger.lifecycle("Patched sevenzipjbinding CMakeLists.txt for CMake 4.x")
+		}
 		logger.lifecycle("sevenzipjbinding source ready at {}", srcDir)
 		
 		// Configure CMake for ARM64
@@ -183,6 +193,7 @@ task buildSevenZipWinARM64 {
 			"-G", "Visual Studio 17 2022",
 			"-A", "ARM64",
 			"-DCMAKE_BUILD_TYPE=Release",
+			"-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
 			"-DJAVA_HOME=${project.JAVA_HOME}",
 			srcDir.absolutePath
 		], cmakeBuildDir)
