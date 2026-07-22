@@ -184,12 +184,14 @@ task buildSevenZipWinARM64 {
 		
 		// sevenzipjbinding only supports MinGW on Windows (MSVC is rejected).
 		// Prefer llvm-mingw ARM64 toolchain installed by the CI workflow.
+		// CMake paths must use forward slashes (backslash is treated as escape).
+		def toCmakePath = { String p -> p.replace('\\', '/') }
 		def mingwBin = System.getenv('LLVM_MINGW_BIN')
 		def mingwPrefix = null
 		if (mingwBin != null) {
 			def clang = new File(mingwBin, 'aarch64-w64-mingw32-clang.exe')
 			if (clang.exists()) {
-				mingwPrefix = new File(mingwBin, 'aarch64-w64-mingw32-').absolutePath
+				mingwPrefix = toCmakePath(new File(mingwBin, 'aarch64-w64-mingw32-').absolutePath)
 			}
 		}
 		if (mingwPrefix == null) {
@@ -199,7 +201,7 @@ task buildSevenZipWinARM64 {
 				def gccPath = which[1].readLines().find { it }
 				if (gccPath != null) {
 					def f = new File(gccPath.trim())
-					mingwPrefix = new File(f.parentFile, 'aarch64-w64-mingw32-').absolutePath
+					mingwPrefix = toCmakePath(new File(f.parentFile, 'aarch64-w64-mingw32-').absolutePath)
 					mingwBin = f.parentFile.absolutePath
 				}
 			}
@@ -209,6 +211,8 @@ task buildSevenZipWinARM64 {
 			return
 		}
 		logger.lifecycle("Using MinGW ARM64 toolchain prefix: {}", mingwPrefix)
+		def javaHomeCmake = toCmakePath(project.JAVA_HOME.toString())
+		def srcDirCmake = toCmakePath(srcDir.absolutePath)
 
 		// Configure CMake for MinGW ARM64 (Ninja or MinGW Makefiles)
 		if (cmakeBuildDir.exists()) {
@@ -216,40 +220,26 @@ task buildSevenZipWinARM64 {
 		}
 		cmakeBuildDir.mkdirs()
 		logger.lifecycle("Configuring sevenzipjbinding CMake for Windows ARM64 (MinGW) ...")
+		def generator = "MinGW Makefiles"
+		def ninjaCheck = runProcess(['where', 'ninja'], null)
+		if (ninjaCheck[0] == 0) {
+			generator = "Ninja"
+		}
 		def cmakeCfg = [
 			'cmake',
-			"-G", "MinGW Makefiles",
+			"-G", generator,
 			"-DCMAKE_BUILD_TYPE=Release",
 			"-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
 			"-DMINGW64=Yes",
-			"-DJAVA_HOME=${project.JAVA_HOME}",
-			"-DJAVA_JDK=${project.JAVA_HOME}",
+			"-DJAVA_HOME=${javaHomeCmake}",
+			"-DJAVA_JDK=${javaHomeCmake}",
 			"-DCMAKE_C_COMPILER=${mingwPrefix}clang.exe",
 			"-DCMAKE_CXX_COMPILER=${mingwPrefix}clang++.exe",
 			"-DCMAKE_RC_COMPILER=${mingwPrefix}windres.exe",
 			"-DCMAKE_SYSTEM_NAME=Windows",
 			"-DCMAKE_SYSTEM_PROCESSOR=ARM64",
-			srcDir.absolutePath
+			srcDirCmake
 		]
-		// Prefer ninja if available
-		def ninjaCheck = runProcess(['where', 'ninja'], null)
-		if (ninjaCheck[0] == 0) {
-			cmakeCfg = [
-				'cmake',
-				"-G", "Ninja",
-				"-DCMAKE_BUILD_TYPE=Release",
-				"-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
-				"-DMINGW64=Yes",
-				"-DJAVA_HOME=${project.JAVA_HOME}",
-				"-DJAVA_JDK=${project.JAVA_HOME}",
-				"-DCMAKE_C_COMPILER=${mingwPrefix}clang.exe",
-				"-DCMAKE_CXX_COMPILER=${mingwPrefix}clang++.exe",
-				"-DCMAKE_RC_COMPILER=${mingwPrefix}windres.exe",
-				"-DCMAKE_SYSTEM_NAME=Windows",
-				"-DCMAKE_SYSTEM_PROCESSOR=ARM64",
-				srcDir.absolutePath
-			]
-		}
 		def (cfgExit, cfgOut) = runProcess(cmakeCfg, cmakeBuildDir)
 		if (cfgExit != 0) {
 			logger.warn("CMake configure failed for Windows ARM64 7-Zip (exit {}).", cfgExit)
