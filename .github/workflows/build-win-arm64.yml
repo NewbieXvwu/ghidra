@@ -41,6 +41,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path $flatRepo
           $dbgDir = "$depsDir\Debugger-agent-dbgeng"
           New-Item -ItemType Directory -Force -Path $dbgDir
+          $rmiDir = "$depsDir\Debugger-rmi-trace"
+          New-Item -ItemType Directory -Force -Path $rmiDir
+          $pyGhidraDir = "$depsDir\PyGhidra"
+          New-Item -ItemType Directory -Force -Path $pyGhidraDir
           $z3Dir = "$depsDir\SymbolicSummaryZ3\os"
           New-Item -ItemType Directory -Force -Path $z3Dir
           $progressPreference = 'silentlyContinue'
@@ -64,6 +68,13 @@ jobs:
             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, "$z3Dir\win_arm_64\$($_.Name)", $true)
           }
           $zip2.Dispose()
+          # Python wheels for Debugger-rmi-trace and PyGhidra (needed by buildPyPackage)
+          Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl" -OutFile "$rmiDir\setuptools-80.9.0-py3-none-any.whl"
+          Copy-Item "$rmiDir\setuptools-80.9.0-py3-none-any.whl" "$pyGhidraDir\setuptools-80.9.0-py3-none-any.whl"
+          Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl" -OutFile "$rmiDir\wheel-0.45.1-py3-none-any.whl"
+          Copy-Item "$rmiDir\wheel-0.45.1-py3-none-any.whl" "$pyGhidraDir\wheel-0.45.1-py3-none-any.whl"
+          Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/ee/01/1ed1d482960a5718fd99c82f6d79120181947cfd4667ec3944d448ed44a3/protobuf-6.31.0-py3-none-any.whl" -OutFile "$rmiDir\protobuf-6.31.0-py3-none-any.whl"
+          Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/90/c7/6dc0a455d111f68ee43f27793971cf03fe29b6ef972042549db29eec39a2/psutil-5.9.8.tar.gz" -OutFile "$rmiDir\psutil-5.9.8.tar.gz"
 
       - name: Build Ghidra
         shell: pwsh
