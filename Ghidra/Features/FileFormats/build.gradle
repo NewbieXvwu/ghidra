@@ -187,7 +187,69 @@ task buildSevenZipWinARM64 {
 	}
 }
 
+// Build lzfse.exe for Windows ARM64 from source using CMake.
+// LZFSE is Apple's open-source compression library; the source lives under src/lzfse/c/.
+// Only runs on Windows with cmake available.
+task buildLzfseWinARM64 {
+	outputs.upToDateWhen { false }
+
+	doLast {
+		if (!System.properties['os.name'].toLowerCase().contains('windows')) {
+			return
+		}
+
+		def cmakeCheck = exec {
+			commandLine 'cmake', '--version'
+			ignoreExitValue true
+		}
+		if (cmakeCheck.exitValue != 0) {
+			logger.warn("cmake not found, skipping lzfse ARM64 native build.")
+			return
+		}
+
+		def srcDir = file('src/lzfse')
+		def cmakeBuildDir = file("${buildDir}/lzfse-arm64")
+		def outDir = file("build/os/win_arm_64")
+
+		cmakeBuildDir.mkdirs()
+		outDir.mkdirs()
+
+		logger.lifecycle("Configuring lzfse CMake for Windows ARM64 ...")
+		def cfg = exec {
+			workingDir cmakeBuildDir
+			commandLine 'cmake',
+				"-G", "Visual Studio 17 2022",
+				"-A", "ARM64",
+				"-DCMAKE_BUILD_TYPE=Release",
+				srcDir.toString()
+			ignoreExitValue true
+		}
+		if (cfg.exitValue != 0) {
+			logger.warn("CMake configure failed for Windows ARM64 lzfse, skipping.")
+			return
+		}
+
+		logger.lifecycle("Building lzfse.exe for Windows ARM64 ...")
+		def build = exec {
+			workingDir cmakeBuildDir
+			commandLine 'cmake', '--build', '.', '--config', 'Release'
+			ignoreExitValue true
+		}
+		if (build.exitValue != 0) {
+			logger.warn("CMake build failed for lzfse ARM64.")
+			return
+		}
+
+		copy {
+			from "${cmakeBuildDir}/Release/lzfse.exe"
+			into outDir
+		}
+		logger.lifecycle("lzfse.exe (ARM64) built and installed successfully.")
+	}
+}
+
 jar.dependsOn buildSevenZipWinARM64
+assemble.dependsOn buildLzfseWinARM64
 
 rootProject.prepDev.dependsOn extractSevenZipNativeLibs
 jar.dependsOn extractSevenZipNativeLibs
