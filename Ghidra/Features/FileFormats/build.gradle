@@ -101,20 +101,19 @@ task extractSevenZipNativeLibs(type: Copy) {
 // Only runs on Windows with cmake available.
 task buildSevenZipWinARM64 {
 	dependsOn extractSevenZipNativeLibs
-	
-	def outputDir = file("build/data/sevenzipnativelibs/Windows-amd64")
-	outputs.dir outputDir
-	
-	// Only run on Windows where CMake + VS are available
-	onlyIf {
-		System.properties['os.name'].toLowerCase().contains('windows')
-	}
+	outputs.upToDateWhen { false }
 	
 	doLast {
+		// Only run on Windows
+		if (!System.properties['os.name'].toLowerCase().contains('windows')) {
+			return
+		}
+		
 		def gitTag = "16.02-2.01"
 		def srcArchive = file("${buildDir}/sevenzip-src.tar.gz")
 		def srcDir = file("${buildDir}/sevenzip-src")
 		def cmakeBuildDir = file("${buildDir}/sevenzip-arm64")
+		def outputDir = file("build/data/sevenzipnativelibs/Windows-amd64")
 		
 		// Check cmake availability
 		def cmakeCheck = exec {
@@ -188,10 +187,7 @@ task buildSevenZipWinARM64 {
 	}
 }
 
-// On Windows, build the ARM64 native 7-Zip library
-if (System.properties['os.name'].toLowerCase().contains('windows')) {
-	jar.dependsOn buildSevenZipWinARM64
-}
+jar.dependsOn buildSevenZipWinARM64
 
 rootProject.prepDev.dependsOn extractSevenZipNativeLibs
 jar.dependsOn extractSevenZipNativeLibs
