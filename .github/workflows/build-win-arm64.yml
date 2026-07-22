@@ -18,6 +18,26 @@ jobs:
         run: |
           echo "JAVA_HOME=$env:JAVA_HOME_21_AARCH64" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      # sevenzipjbinding only builds on Windows with MinGW; install llvm-mingw for ARM64.
+      - name: Install llvm-mingw (ARM64)
+        shell: pwsh
+        run: |
+          $ver = "20260616"
+          $zip = "llvm-mingw-$ver-ucrt-aarch64.zip"
+          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/$ver/$zip"
+          $dest = "$env:RUNNER_TEMP\llvm-mingw"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $out = "$env:RUNNER_TEMP\$zip"
+          Write-Host "Downloading $url ..."
+          Invoke-WebRequest -Uri $url -OutFile $out
+          Expand-Archive -Path $out -DestinationPath $dest -Force
+          $bin = Get-ChildItem -Path $dest -Recurse -Filter "aarch64-w64-mingw32-clang.exe" |
+            Select-Object -First 1 -ExpandProperty DirectoryName
+          if (-not $bin) { throw "llvm-mingw toolchain not found after extract" }
+          echo "LLVM_MINGW_BIN=$bin" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "$bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          & "$bin\aarch64-w64-mingw32-clang.exe" --version
+
       - name: Patch settings for Gradle 9 and ARM64
         shell: pwsh
         run: |
