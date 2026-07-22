@@ -20,28 +20,18 @@ jobs:
         run: |
           echo "JAVA_HOME=$env:JAVA_HOME_21_AARCH64" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Generate Gradle 8.12 wrapper
+      - name: Patch settings for Gradle 9 and ARM64
         shell: pwsh
         run: |
-          $tmpDir = "$env:TEMP\gradle-gen"
-          $srcDir = "$pwd"
-          New-Item -ItemType Directory -Force -Path $tmpDir
-          Set-Location $tmpDir
-          "" | Out-File -FilePath "build.gradle" -Encoding ascii
-          gradle wrapper --gradle-version 8.12 --no-daemon
-          if (Test-Path "$tmpDir\gradlew") {
-            Copy-Item "$tmpDir\gradlew" "$srcDir\gradlew" -Force
-            Copy-Item "$tmpDir\gradlew.bat" "$srcDir\gradlew.bat" -Force
-            New-Item -ItemType Directory -Force -Path "$srcDir\gradle\wrapper"
-            Copy-Item "$tmpDir\gradle\wrapper\gradle-wrapper.jar" "$srcDir\gradle\wrapper\gradle-wrapper.jar" -Force
-            Copy-Item "$tmpDir\gradle\wrapper\gradle-wrapper.properties" "$srcDir\gradle\wrapper\gradle-wrapper.properties" -Force
-          }
-          Set-Location $srcDir
+          # Fix includeProjectNamed for Gradle 9 compatibility - use settings.file() instead of new File()
+          $util = Get-Content "$pwd\gradle\support\settingsUtil.gradle" -Raw
+          $util = $util -replace "File projectDir = new File\(rootProject\.projectDir, `"\$path/\$dirName`"\)", "def projectDir = settings.file(`"\$path/\$dirName`")"
+          $util | Set-Content "$pwd\gradle\support\settingsUtil.gradle"
 
-      - name: Patch settings.gradle for ARM64
-        shell: pwsh
-        run: |
-          (Get-Content "$pwd\settings.gradle") -replace "includeProjects\('Ghidra/Test'\)", "includeProject('IntegrationTest', 'Ghidra/Test', true)" | Set-Content "$pwd\settings.gradle"
+          # Exclude DebuggerIntegrationTest to avoid WindowsRegistry issue on ARM64
+          $settings = Get-Content "$pwd\settings.gradle"
+          $settings = $settings -replace "includeProjects\('Ghidra/Test'\)", "includeProject('IntegrationTest', 'Ghidra/Test', true)"
+          $settings | Set-Content "$pwd\settings.gradle"
 
       - name: Fetch dependencies
         shell: pwsh
@@ -58,7 +48,7 @@ jobs:
 
       - name: Build Ghidra
         shell: pwsh
-        run: .\gradlew buildGhidra -x createJavadocs -x createJsondocs -x createPythonTypeStubs -x createGhidraStubsWheel --no-daemon
+        run: gradle buildGhidra -x createJavadocs -x createJsondocs -x createPythonTypeStubs -x createGhidraStubsWheel --no-daemon
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
