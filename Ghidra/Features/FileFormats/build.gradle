@@ -188,6 +188,8 @@ GET_FILENAME_COMPONENT(SEVENZIP_JBINDING_LIB_FILENAME "${SEVENZIP_JBINDING_LIB}"
 '''# CMake 4.x: CMP0026 OLD / LOCATION no longer supported.
 # MinGW shared lib name is typically lib7-Zip-JBinding.dll
 SET(SEVENZIP_JBINDING_LIB_FILENAME "lib7-Zip-JBinding.dll")''')
+			// JDK 21 no longer supports -source/-target 1.5
+			newText = newText.replace('-source 1.5 -target 1.5', '-source 1.8 -target 1.8')
 			if (newText != cmakeListsText) {
 				cmakeLists.write(newText, 'UTF-8')
 				patched = true
