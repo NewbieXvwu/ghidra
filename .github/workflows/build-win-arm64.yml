@@ -27,12 +27,15 @@ jobs:
           $srcDir = "$pwd"
           New-Item -ItemType Directory -Force -Path $tmpDir
           Set-Location $tmpDir
+          "" | Out-File -FilePath "build.gradle" -Encoding ascii
           gradle wrapper --gradle-version 8.12 --no-daemon
-          Copy-Item "$tmpDir\gradlew" "$srcDir\gradlew" -Force
-          Copy-Item "$tmpDir\gradlew.bat" "$srcDir\gradlew.bat" -Force
-          New-Item -ItemType Directory -Force -Path "$srcDir\gradle\wrapper"
-          Copy-Item "$tmpDir\gradle\wrapper\gradle-wrapper.jar" "$srcDir\gradle\wrapper\gradle-wrapper.jar" -Force
-          Copy-Item "$tmpDir\gradle\wrapper\gradle-wrapper.properties" "$srcDir\gradle\wrapper\gradle-wrapper.properties" -Force
+          if (Test-Path "$tmpDir\gradlew") {
+            Copy-Item "$tmpDir\gradlew" "$srcDir\gradlew" -Force
+            Copy-Item "$tmpDir\gradlew.bat" "$srcDir\gradlew.bat" -Force
+            New-Item -ItemType Directory -Force -Path "$srcDir\gradle\wrapper"
+            Copy-Item "$tmpDir\gradle\wrapper\gradle-wrapper.jar" "$srcDir\gradle\wrapper\gradle-wrapper.jar" -Force
+            Copy-Item "$tmpDir\gradle\wrapper\gradle-wrapper.properties" "$srcDir\gradle\wrapper\gradle-wrapper.properties" -Force
+          }
           Set-Location $srcDir
 
       - name: Fetch dependencies
