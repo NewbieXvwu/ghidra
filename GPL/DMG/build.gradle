@@ -69,20 +69,13 @@ jar {
  * Equivalent to the Gradle-native model in buildNatives.gradle but compatible with Gradle 9+.
  *
  ***************************************************************************************/
+import org.gradle.process.ExecSpec
+
 task buildLlioWinARM64 {
 	outputs.upToDateWhen { false }
 
 	doLast {
 		if (!System.properties['os.name'].toLowerCase().contains('windows')) {
-			return
-		}
-
-		def cmakeCheck = project.exec {
-			commandLine 'cmake', '--version'
-			ignoreExitValue true
-		}
-		if (cmakeCheck.exitValue != 0) {
-			logger.warn("cmake not found, skipping llio ARM64 native build.")
 			return
 		}
 
@@ -94,36 +87,25 @@ task buildLlioWinARM64 {
 		outDir.mkdirs()
 
 		logger.lifecycle("Configuring llio CMake for Windows ARM64 ...")
-		def cfg = project.exec {
-			workingDir cmakeBuildDir
-			commandLine 'cmake',
+		def cfg = project.exec { it.workingDir = cmakeBuildDir; it.commandLine 'cmake',
 				"-G", "Visual Studio 17 2022",
 				"-A", "ARM64",
 				"-DCMAKE_BUILD_TYPE=Release",
 				"-DJAVA_HOME=${project.JAVA_HOME}",
-				srcDir.toString()
-			ignoreExitValue true
-		}
+				srcDir.toString(); it.ignoreExitValue = true }
 		if (cfg.exitValue != 0) {
 			logger.warn("CMake configure failed for Windows ARM64 llio, skipping.")
 			return
 		}
 
 		logger.lifecycle("Building llio_arm64.dll ...")
-		def build = project.exec {
-			workingDir cmakeBuildDir
-			commandLine 'cmake', '--build', '.', '--config', 'Release'
-			ignoreExitValue true
-		}
+		def build = project.exec { it.workingDir = cmakeBuildDir; it.commandLine 'cmake', '--build', '.', '--config', 'Release'; it.ignoreExitValue = true }
 		if (build.exitValue != 0) {
 			logger.warn("CMake build failed for llio ARM64 native library.")
 			return
 		}
 
-		project.copy {
-			from "${cmakeBuildDir}/Release/llio_arm64.dll"
-			into outDir
-		}
+		project.copy { it.from "${cmakeBuildDir}/Release/llio_arm64.dll"; it.into outDir }
 		logger.lifecycle("llio_arm64.dll built and installed successfully.")
 	}
 }
