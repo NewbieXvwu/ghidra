@@ -5,6 +5,8 @@
 if (findProject(':Generic') != null) {
 	apply from: "$rootProject.projectDir/gradle/javaProject.gradle"
 	apply from: "$rootProject.projectDir/gradle/distributableGPLModule.gradle"
+	apply from: "$rootProject.projectDir/gradle/nativeProject.gradle"
+	apply from: "buildNatives.gradle"
 	
 	rootProject.assembleDistribution {
 		doLast {
@@ -13,6 +15,7 @@ if (findProject(':Generic') != null) {
 			delete assemblePath + "/lib"
 		}
 	}
+	
 }
 else {
 	apply plugin: 'java-library'

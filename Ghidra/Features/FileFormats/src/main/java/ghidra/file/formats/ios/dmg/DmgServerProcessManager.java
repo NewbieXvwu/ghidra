@@ -256,24 +256,37 @@ class DmgServerProcessManager implements Closeable {
 
 	private String buildClasspath() {
 		StringBuilder builder = new StringBuilder();
+		StringBuilder otherJars = new StringBuilder();
 
 		ResourceFile dmgModule = Application.getModuleRootDir(DMG_MODULE_NAME);
 		ResourceFile standaloneLibDir = new ResourceFile(dmgModule, "data/lib");
 		ResourceFile[] standaloneLibs = standaloneLibDir.listFiles();
-		for (ResourceFile standaloneLib : standaloneLibs) {
-			if (standaloneLib.getName().endsWith(".jar")) {
-				File standaloneLibFile = standaloneLib.getFile(true);
-				builder.append(standaloneLibFile.getAbsolutePath());
-				builder.append(File.pathSeparator);
+
+		// Add DMG's own JAR first so patched classes override hfsx.jar
+		if (standaloneLibs != null) {
+			for (ResourceFile standaloneLib : standaloneLibs) {
+				if (standaloneLib.getName().endsWith(".jar")) {
+					File standaloneLibFile = standaloneLib.getFile(true);
+					if (standaloneLib.getName().equals("DMG.jar")) {
+						builder.append(standaloneLibFile.getAbsolutePath());
+						builder.append(File.pathSeparator);
+					}
+					else {
+						otherJars.append(standaloneLibFile.getAbsolutePath());
+						otherJars.append(File.pathSeparator);
+					}
+				}
 			}
 		}
 
+		// Also add bin/dmg/ (compiled classes) in development mode, ahead of jars
 		if (SystemUtilities.isInDevelopmentMode()) {
 			ResourceFile binDirectory = new ResourceFile(dmgModule, "bin/dmg");
 			builder.append(binDirectory.getAbsolutePath());
 			builder.append(File.pathSeparator);
 		}
 
+		builder.append(otherJars);
 		return builder.toString();
 	}
 
@@ -338,17 +351,19 @@ class DmgServerProcessManager implements Closeable {
 	}
 
 	private void addOSPaths(Set<String> pathSet) {
-		String osFilePath = "data/os/" + Platform.CURRENT_PLATFORM.getDirectoryName();
-
 		ResourceFile module = Application.getModuleRootDir(DMG_MODULE_NAME);
-		ResourceFile standaloneOSDir = new ResourceFile(module, osFilePath);
-		ResourceFile[] standaloneResourceFiles = standaloneOSDir.listFiles();
-		if (standaloneResourceFiles == null) {
-			return;
-		}
-		for (ResourceFile resourceFile : standaloneResourceFiles) {
-			File standaloneFile = resourceFile.getFile(true);// copy as needed
-			pathSet.add(standaloneFile.getParentFile().getAbsolutePath());
+		String platformDir = Platform.CURRENT_PLATFORM.getDirectoryName();
+
+		// Check standard locations: os/<platform>/, data/os/<platform>/, build/os/<platform>/
+		for (String prefix : new String[] { "os", "data/os", "build/os" }) {
+			ResourceFile osDir = new ResourceFile(module, prefix + "/" + platformDir);
+			ResourceFile[] files = osDir.listFiles();
+			if (files != null) {
+				for (ResourceFile f : files) {
+					File standaloneFile = f.getFile(true);
+					pathSet.add(standaloneFile.getParentFile().getAbsolutePath());
+				}
+			}
 		}
 	}
 

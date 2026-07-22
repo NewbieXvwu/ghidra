@@ -58,6 +58,12 @@ public class SevenZipCustomInitializer {
 		try {
 			String platform = SevenZip.getPlatformBestMatch();
 
+			// Windows-arm64 is not supported by upstream sevenzipjbinding,
+			// so map it to Windows-amd64 for both properties and native libs.
+			// When a native ARM64 build is available, it replaces the DLL
+			// in the Windows-amd64 directory (same filename, different arch).
+			platform = resolvePlatform(platform);
+
 			// This depends on the sevenzip native libraries being extracted from the sevenzip jar
 			// and being placed in the data/sevenzipnativelibs/ directory by a gradle task.
 			// Sevenzip's platform designator will be used to pick the appropriate native library,
@@ -80,6 +86,18 @@ public class SevenZipCustomInitializer {
 			throw new SevenZipNativeInitializationException("Error initializing SevenzipJbinding",
 				e);
 		}
+	}
+
+	/**
+	 * Resolve the platform string, falling back to {@code Windows-amd64} when running
+	 * on {@code Windows-arm64} since upstream sevenzipjbinding does not ship native
+	 * libraries for Windows ARM64 (x64 emulation will be used instead).
+	 */
+	private static String resolvePlatform(String platform) {
+		if (platform != null && platform.startsWith("Windows-") && !platform.equals("Windows-amd64")) {
+			return "Windows-amd64";
+		}
+		return platform;
 	}
 
 	private static Properties loadProperties(String platform)
