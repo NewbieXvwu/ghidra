@@ -55,9 +55,16 @@ jobs:
           dl "https://github.com/NationalSecurityAgency/ghidra-data/raw/Ghidra_12.1.2/Debugger/dbgmodel.tlb" "$dbgDir\dbgmodel.tlb"
           Write-Output "::endgroup::"
 
-          # ---- YAJSW (SourceForge needs /download suffix) ----
+          # ---- YAJSW (use curl -L for SourceForge redirect chain) ----
           Write-Output "::group::YAJSW"
-          dl "https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-13.18/yajsw-stable-13.18.zip/download" "$gsDir\yajsw-stable-13.18.zip"
+          $yajswUrl = "https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-13.18/yajsw-stable-13.18.zip/download"
+          $yajswOut = "$gsDir\yajsw-stable-13.18.zip"
+          # Use curl.exe which handles SourceForge redirects better than Invoke-WebRequest
+          curl.exe -L -o $yajswOut $yajswUrl 2>&1
+          # Verify it's a valid ZIP
+          if (-not (Test-Path $yajswOut) -or (Get-Item $yajswOut).Length -lt 10000) {
+            throw "yajsw download failed or too small"
+          }
           Write-Output "::endgroup::"
 
           # ---- Z3 ----
