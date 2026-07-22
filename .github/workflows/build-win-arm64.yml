@@ -75,6 +75,10 @@ jobs:
           Copy-Item "$rmiDir\wheel-0.45.1-py3-none-any.whl" "$pyGhidraDir\wheel-0.45.1-py3-none-any.whl"
           Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/ee/01/1ed1d482960a5718fd99c82f6d79120181947cfd4667ec3944d448ed44a3/protobuf-6.31.0-py3-none-any.whl" -OutFile "$rmiDir\protobuf-6.31.0-py3-none-any.whl"
           Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/90/c7/6dc0a455d111f68ee43f27793971cf03fe29b6ef972042549db29eec39a2/psutil-5.9.8.tar.gz" -OutFile "$rmiDir\psutil-5.9.8.tar.gz"
+          # YAJSW for GhidraServer
+          $gsDir = "$depsDir\GhidraServer"
+          New-Item -ItemType Directory -Force -Path $gsDir
+          Invoke-WebRequest -Uri "https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-13.18/yajsw-stable-13.18.zip" -OutFile "$gsDir\yajsw-stable-13.18.zip"
 
       - name: Build Ghidra
         shell: pwsh
