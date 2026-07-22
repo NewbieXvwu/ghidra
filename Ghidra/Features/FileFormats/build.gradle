@@ -274,7 +274,7 @@ SET(SEVENZIP_JBINDING_LIB_FILENAME "lib7-Zip-JBinding.dll")''')
 		// Build
 		logger.lifecycle("Building sevenzipjbinding for Windows ARM64 (this may take a few minutes) ...")
 		def (buildExit, buildOut) = runProcess([
-			'cmake', '--build', '.', '--config', 'Release', '--target', 'SevenZipJBinding', '-j', '4'
+			'cmake', '--build', '.', '--config', 'Release', '--target', '7-Zip-JBinding', '-j', '4'
 		], cmakeBuildDir)
 		if (buildExit != 0) {
 			logger.warn("CMake build failed for Windows ARM64 7-Zip native library (exit {}).", buildExit)
