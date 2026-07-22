@@ -116,11 +116,9 @@ task buildSevenZipWinARM64 {
 		def outputDir = project.file("build/data/sevenzipnativelibs/Windows-amd64")
 		
 		// Check cmake availability
-		def cmakeCheck = project.exec {
-			commandLine 'cmake', '--version'
-			ignoreExitValue true
-		}
-		if (cmakeCheck.exitValue != 0) {
+		def cmakeCheck = [ 'cmake', '--version' ].execute()
+		cmakeCheck.waitFor()
+		if (cmakeCheck.exitValue() != 0) {
 			logger.warn("cmake not found, skipping Windows ARM64 7-Zip native build. " +
 				"Install CMake (choco install cmake) and ensure it is in PATH.")
 			return
@@ -147,17 +145,12 @@ task buildSevenZipWinARM64 {
 		// Configure CMake for ARM64
 		cmakeBuildDir.mkdirs()
 		logger.lifecycle("Configuring sevenzipjbinding CMake for Windows ARM64 ...")
-		def cfg = project.exec {
-			workingDir cmakeBuildDir
-			commandLine 'cmake',
-				"-G", "Visual Studio 17 2022",
-				"-A", "ARM64",
-				"-DCMAKE_BUILD_TYPE=Release",
-				"-DJAVA_HOME=${project.JAVA_HOME}",
-				srcDir.toString()
-			ignoreExitValue true
-		}
-		if (cfg.exitValue != 0) {
+		def cfg = [ 'cmake', "-G", "Visual Studio 17 2022", "-A", "ARM64",
+			"-DCMAKE_BUILD_TYPE=Release",
+			"-DJAVA_HOME=${project.JAVA_HOME}",
+			srcDir.toString() ].execute(null, cmakeBuildDir)
+		cfg.waitFor()
+		if (cfg.exitValue() != 0) {
 			logger.warn("CMake configure failed for Windows ARM64 (VS 2022 may not be installed), " +
 				"skipping native 7-Zip ARM64 build.")
 			return
@@ -165,12 +158,9 @@ task buildSevenZipWinARM64 {
 		
 		// Build
 		logger.lifecycle("Building sevenzipjbinding for Windows ARM64 (this may take a few minutes) ...")
-		def build = project.exec {
-			workingDir cmakeBuildDir
-			commandLine 'cmake', '--build', '.', '--config', 'Release', '--target', 'SevenZipJBinding'
-			ignoreExitValue true
-		}
-		if (build.exitValue != 0) {
+		def build = [ 'cmake', '--build', '.', '--config', 'Release', '--target', 'SevenZipJBinding' ].execute(null, cmakeBuildDir)
+		build.waitFor()
+		if (build.exitValue() != 0) {
 			logger.warn("CMake build failed for Windows ARM64 7-Zip native library.")
 			return
 		}
@@ -179,9 +169,9 @@ task buildSevenZipWinARM64 {
 		// The SevenZipCustomInitializer maps Windows-arm64 -> Windows-amd64,
 		// so this ARM64 DLL will be loaded when running on ARM64 Windows.
 		outputDir.mkdirs()
-		project.copy {
-			from "${cmakeBuildDir}/bin/Release/7-Zip-JBinding.dll"
-			into outputDir
+		def src7z = new File("${cmakeBuildDir}/bin/Release/7-Zip-JBinding.dll")
+		if (src7z.exists()) {
+			new File(outputDir, "7-Zip-JBinding.dll").bytes = src7z.bytes
 		}
 		logger.lifecycle("Windows ARM64 7-Zip native library built and installed successfully.")
 	}
