@@ -170,14 +170,30 @@ task buildSevenZipWinARM64 {
 			logger.warn("sevenzipjbinding source missing CMakeLists.txt at {}, skipping.", srcDir)
 			return
 		}
-		// CMake 4.x removed compatibility with cmake_minimum_required < 3.5
+		// Patch sevenzipjbinding CMakeLists for CMake 4.x + modern toolchains
 		def cmakeLists = new File(srcDir, "CMakeLists.txt")
 		def cmakeListsText = cmakeLists.getText('UTF-8')
-		if (cmakeListsText.contains('CMAKE_MINIMUM_REQUIRED(VERSION 2.')) {
-			cmakeListsText = cmakeListsText.replaceFirst(
+		def patched = false
+		if (cmakeListsText.contains('CMAKE_MINIMUM_REQUIRED(VERSION 2.') ||
+				cmakeListsText.contains('CMAKE_MINIMUM_REQUIRED(VERSION 3.5)')) {
+			def newText = cmakeListsText.replaceFirst(
 				/CMAKE_MINIMUM_REQUIRED\(VERSION\s+[\d.]+\)/,
-				'CMAKE_MINIMUM_REQUIRED(VERSION 3.5)')
-			cmakeLists.write(cmakeListsText, 'UTF-8')
+				'CMAKE_MINIMUM_REQUIRED(VERSION 3.10)')
+			// CMake 4.x removed CMP0026 OLD and LOCATION property reads
+			newText = newText.replace(
+'''cmake_policy(SET CMP0026 OLD)
+# TODO: Not allowed due to policy CMP0026
+GET_TARGET_PROPERTY(SEVENZIP_JBINDING_LIB 7-Zip-JBinding LOCATION)
+GET_FILENAME_COMPONENT(SEVENZIP_JBINDING_LIB_FILENAME "${SEVENZIP_JBINDING_LIB}" NAME)''',
+'''# CMake 4.x: CMP0026 OLD / LOCATION no longer supported.
+# MinGW shared lib name is typically lib7-Zip-JBinding.dll
+SET(SEVENZIP_JBINDING_LIB_FILENAME "lib7-Zip-JBinding.dll")''')
+			if (newText != cmakeListsText) {
+				cmakeLists.write(newText, 'UTF-8')
+				patched = true
+			}
+		}
+		if (patched) {
 			logger.lifecycle("Patched sevenzipjbinding CMakeLists.txt for CMake 4.x")
 		}
 		logger.lifecycle("sevenzipjbinding source ready at {}", srcDir)
@@ -269,17 +285,16 @@ task buildSevenZipWinARM64 {
 		// The SevenZipCustomInitializer maps Windows-arm64 -> Windows-amd64,
 		// so this ARM64 DLL will be loaded when running on ARM64 Windows.
 		outputDir.mkdirs()
-		def src7z = new File("${cmakeBuildDir}/bin/Release/7-Zip-JBinding.dll")
-		if (!src7z.exists()) {
-			// Fallback: search the build tree
-			src7z = fileTree(cmakeBuildDir) {
-				include "**/7-Zip-JBinding.dll"
-			}.files.find { true }
-		}
+		// Search common MinGW/MSVC output names
+		def src7z = fileTree(cmakeBuildDir) {
+			include "**/7-Zip-JBinding.dll"
+			include "**/lib7-Zip-JBinding.dll"
+		}.files.find { true }
 		if (src7z == null || !src7z.exists()) {
 			logger.warn("7-Zip-JBinding.dll not found after build under {}", cmakeBuildDir)
 			return
 		}
+		// Runtime expects the exact filename "7-Zip-JBinding.dll"
 		new File(outputDir, "7-Zip-JBinding.dll").bytes = src7z.bytes
 		logger.lifecycle("Windows ARM64 7-Zip native library built and installed from {}.", src7z)
 	}
