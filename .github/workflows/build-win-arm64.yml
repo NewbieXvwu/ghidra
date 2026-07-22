@@ -33,52 +33,54 @@ jobs:
           $settings = $settings -replace "includeProjects\('Ghidra/Test'\)", "includeProject('IntegrationTest', 'Ghidra/Test', true)"
           $settings | Set-Content "$pwd\settings.gradle"
 
-      - name: Fetch dependencies
+      - name: Patch fetchDependencies.gradle
+        shell: pwsh
+        run: |
+          # Fix yajsw URL: SourceForge needs /download suffix or it returns HTML
+          $f = Get-Content "$pwd\gradle\support\fetchDependencies.gradle" -Raw
+          $f = $f -replace '"https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-13.18/yajsw-stable-13.18.zip"', '"https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-13.18/yajsw-stable-13.18.zip/download"'
+          $f | Set-Content "$pwd\gradle\support\fetchDependencies.gradle"
+
+      - name: Fetch dependencies (Gradle init script)
+        shell: pwsh
+        run: |
+          gradle -I gradle/support/fetchDependencies.gradle init --no-daemon 2>&1
+
+      - name: Extract Z3 native libraries
         shell: pwsh
         run: |
           $depsDir = "$pwd\dependencies"
           $flatRepo = "$depsDir\flatRepo"
-          New-Item -ItemType Directory -Force -Path $flatRepo
-          $dbgDir = "$depsDir\Debugger-agent-dbgeng"
-          New-Item -ItemType Directory -Force -Path $dbgDir
-          $rmiDir = "$depsDir\Debugger-rmi-trace"
-          New-Item -ItemType Directory -Force -Path $rmiDir
-          $pyGhidraDir = "$depsDir\PyGhidra"
-          New-Item -ItemType Directory -Force -Path $pyGhidraDir
           $z3Dir = "$depsDir\SymbolicSummaryZ3\os"
-          New-Item -ItemType Directory -Force -Path $z3Dir
-          $progressPreference = 'silentlyContinue'
-          # Core deps
-          Invoke-WebRequest -Uri "https://github.com/NationalSecurityAgency/ghidra-data/raw/Ghidra_12.1.2/lib/java-sarif-2.1-modified.jar" -OutFile "$flatRepo\java-sarif-2.1-modified.jar"
-          Invoke-WebRequest -Uri "https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/android4me/AXMLPrinter2.jar" -OutFile "$flatRepo\AXMLPrinter2.jar"
-          Invoke-WebRequest -Uri "https://github.com/NationalSecurityAgency/ghidra-data/raw/Ghidra_12.1.2/Debugger/dbgmodel.tlb" -OutFile "$dbgDir\dbgmodel.tlb"
-          # Z3: download Linux x64 for the Java jar (platform-independent), and Win ARM64 native DLL if available
-          Invoke-WebRequest -Uri "https://github.com/Z3Prover/z3/releases/download/z3-4.13.0/z3-4.13.0-x64-glibc-2.31.zip" -OutFile "$env:TEMP\z3-linux.zip"
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $zip = [System.IO.Compression.ZipFile]::OpenRead("$env:TEMP\z3-linux.zip")
-          $zip.Entries | Where-Object { $_.Name -like "*.jar" } | ForEach-Object {
-            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, "$flatRepo\$($_.Name)", $true)
+          # Ensure Z3 jar is in flatRepo (extract from Linux zip)
+          $linuxZip = "$depsDir\downloads\z3-4.13.0-x64-glibc-2.31.zip"
+          if (Test-Path $linuxZip) {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($linuxZip)
+            $zip.Entries | Where-Object { $_.Name -like "*.jar" } | ForEach-Object {
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, "$flatRepo\$($_.Name)", $true)
+            }
+            $zip.Dispose()
           }
-          $zip.Dispose()
-          # Windows ARM64 native Z3 - use x64 DLL via emulation if no ARM64 build available
-          Invoke-WebRequest -Uri "https://github.com/Z3Prover/z3/releases/download/z3-4.13.0/z3-4.13.0-x64-win.zip" -OutFile "$env:TEMP\z3-win.zip"
-          $zip2 = [System.IO.Compression.ZipFile]::OpenRead("$env:TEMP\z3-win.zip")
-          New-Item -ItemType Directory -Force -Path "$z3Dir\win_arm_64"
-          $zip2.Entries | Where-Object { $_.Name -like "libz3*" } | ForEach-Object {
-            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, "$z3Dir\win_arm_64\$($_.Name)", $true)
+          # Extract win x64 DLLs into win_arm_64 (works via x64 emulation)
+          $winZip = "$depsDir\downloads\z3-4.13.0-x64-win.zip"
+          if (Test-Path $winZip) {
+            New-Item -ItemType Directory -Force -Path "$z3Dir\win_arm_64"
+            $zip2 = [System.IO.Compression.ZipFile]::OpenRead($winZip)
+            $zip2.Entries | Where-Object { $_.Name -like "libz3*" } | ForEach-Object {
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, "$z3Dir\win_arm_64\$($_.Name)", $true)
+            }
+            $zip2.Dispose()
           }
-          $zip2.Dispose()
-          # Python wheels for Debugger-rmi-trace and PyGhidra (needed by buildPyPackage)
-          Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl" -OutFile "$rmiDir\setuptools-80.9.0-py3-none-any.whl"
-          Copy-Item "$rmiDir\setuptools-80.9.0-py3-none-any.whl" "$pyGhidraDir\setuptools-80.9.0-py3-none-any.whl"
-          Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl" -OutFile "$rmiDir\wheel-0.45.1-py3-none-any.whl"
-          Copy-Item "$rmiDir\wheel-0.45.1-py3-none-any.whl" "$pyGhidraDir\wheel-0.45.1-py3-none-any.whl"
-          Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/ee/01/1ed1d482960a5718fd99c82f6d79120181947cfd4667ec3944d448ed44a3/protobuf-6.31.0-py3-none-any.whl" -OutFile "$rmiDir\protobuf-6.31.0-py3-none-any.whl"
-          Invoke-WebRequest -Uri "https://files.pythonhosted.org/packages/90/c7/6dc0a455d111f68ee43f27793971cf03fe29b6ef972042549db29eec39a2/psutil-5.9.8.tar.gz" -OutFile "$rmiDir\psutil-5.9.8.tar.gz"
-          # YAJSW for GhidraServer
-          $gsDir = "$depsDir\GhidraServer"
-          New-Item -ItemType Directory -Force -Path $gsDir
-          Invoke-WebRequest -Uri "https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-13.18/yajsw-stable-13.18.zip" -OutFile "$gsDir\yajsw-stable-13.18.zip"
+          # Also extract Z3 DLLs for win_x86_64 (needed for assembly checks)
+          New-Item -ItemType Directory -Force -Path "$z3Dir\win_x86_64"
+          if (Test-Path $winZip) {
+            $zip3 = [System.IO.Compression.ZipFile]::OpenRead($winZip)
+            $zip3.Entries | Where-Object { $_.Name -like "libz3*" } | ForEach-Object {
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, "$z3Dir\win_x86_64\$($_.Name)", $true)
+            }
+            $zip3.Dispose()
+          }
 
       - name: Build Ghidra
         shell: pwsh
