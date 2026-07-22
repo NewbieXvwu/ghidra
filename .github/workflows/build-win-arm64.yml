@@ -38,6 +38,11 @@ jobs:
           }
           Set-Location $srcDir
 
+      - name: Patch settings.gradle for ARM64
+        shell: pwsh
+        run: |
+          (Get-Content "$pwd\settings.gradle") -replace "includeProjects\('Ghidra/Test'\)", "includeProject('IntegrationTest', 'Ghidra/Test', true)" | Set-Content "$pwd\settings.gradle"
+
       - name: Fetch dependencies
         shell: pwsh
         run: |
