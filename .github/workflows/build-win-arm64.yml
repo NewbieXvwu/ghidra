@@ -166,6 +166,38 @@ jobs:
           dl "https://files.pythonhosted.org/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl" "$pyDir\packaging-25.0-py3-none-any.whl"
           Write-Output "::endgroup::"
 
+      # Build protoc from source for ARM64 (no official Windows ARM64 release)
+      - name: Build protoc ARM64
+        shell: pwsh
+        run: |
+          $outDir = "$pwd\build\protoc-arm64"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $ver = "4.31.0"
+          Write-Output "Downloading protobuf $ver source ..."
+          curl.exe -L -o "$env:RUNNER_TEMP\protobuf.zip" `
+            "https://github.com/protocolbuffers/protobuf/releases/download/v$ver/protobuf-$ver.zip"
+          Expand-Archive -Path "$env:RUNNER_TEMP\protobuf.zip" -DestinationPath "$env:RUNNER_TEMP\" -Force
+          Remove-Item -Force "$env:RUNNER_TEMP\protobuf.zip"
+          $srcDir = Get-ChildItem "$env:RUNNER_TEMP\protobuf-*" | Select-Object -First 1 -ExpandProperty FullName
+          $buildDir = "$env:RUNNER_TEMP\protobuf-arm64"
+          Write-Output "Building protoc from source for ARM64 ..."
+          cmake -S "$srcDir\cmake" -B "$buildDir" `
+            -G "Visual Studio 17 2022" -A ARM64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -Dprotobuf_BUILD_TESTS=OFF `
+            -Dprotobuf_BUILD_EXAMPLES=OFF `
+            -Dprotobuf_BUILD_PROTOC_BINARIES=ON `
+            -Dprotobuf_BUILD_LIBPROTOC=OFF `
+            -Dprotobuf_MSVC_STATIC_RUNTIME=OFF
+          cmake --build "$buildDir" --config Release --target protoc -j 4
+          $builtProtoc = Get-ChildItem "$buildDir\Release\protoc.exe" -Recurse | Select-Object -First 1
+          if (-not $builtProtoc) {
+            $builtProtoc = Get-ChildItem "$buildDir\protoc.exe" -Recurse | Select-Object -First 1
+          }
+          if (-not $builtProtoc) { throw "protoc build failed: exe not found" }
+          Copy-Item $builtProtoc.FullName "$outDir\protoc.exe" -Force
+          Write-Output "ARM64 protoc built and placed at $outDir\protoc.exe"
+
       - name: Build Ghidra
         shell: pwsh
         run: |

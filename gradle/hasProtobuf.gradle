@@ -35,7 +35,16 @@ dependencies {
 	allProtocArtifacts "com.google.protobuf:protoc:${version}:osx-aarch_64@exe"
 
 	if (isCurrentWindows()) {
-		protocArtifact "com.google.protobuf:protoc:${version}:windows-x86_64@exe"
+		if (getCurrentPlatformName() == "win_arm_64") {
+			def localProtoc = file("${rootProject.projectDir}/build/protoc-arm64/protoc.exe")
+			if (localProtoc.exists()) {
+				protocArtifact files(localProtoc)
+			} else {
+				protocArtifact "com.google.protobuf:protoc:${version}:windows-x86_64@exe"
+			}
+		} else {
+			protocArtifact "com.google.protobuf:protoc:${version}:windows-x86_64@exe"
+		}
 	}
 	if (isCurrentLinux()) {
 		if (platform.endsWith("x86_64")) {
