@@ -182,7 +182,7 @@ jobs:
           Write-Output "Source directory: ${srcDir}"
           $buildDir = "$env:RUNNER_TEMP\protobuf-arm64"
           Write-Output "Building protoc from source for ARM64 ..."
-          cmake -S "$srcDir\cmake" -B "$buildDir" `
+          cmake -S "$srcDir" -B "$buildDir" `
             -G "Visual Studio 17 2022" -A ARM64 `
             -DCMAKE_BUILD_TYPE=Release `
             -Dprotobuf_BUILD_TESTS=OFF `
