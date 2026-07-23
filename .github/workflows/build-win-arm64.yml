@@ -89,8 +89,10 @@ jobs:
           Write-Output "::group::Z3"
           $linuxZip = "$dlDir\z3-4.13.0-x64-glibc-2.31.zip"
           $winZip = "$dlDir\z3-4.13.0-x64-win.zip"
+          $winArmZip = "$dlDir\z3-4.13.0-arm64-win.zip"
           dl "https://github.com/Z3Prover/z3/releases/download/z3-4.13.0/z3-4.13.0-x64-glibc-2.31.zip" $linuxZip
           dl "https://github.com/Z3Prover/z3/releases/download/z3-4.13.0/z3-4.13.0-x64-win.zip" $winZip
+          dl "https://github.com/Z3Prover/z3/releases/download/z3-4.13.0/z3-4.13.0-arm64-win.zip" $winArmZip
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $z = [System.IO.Compression.ZipFile]::OpenRead($linuxZip)
           $z.Entries | Where-Object { $_.Name -like "*.jar" } | ForEach-Object {
@@ -100,9 +102,13 @@ jobs:
           $z2 = [System.IO.Compression.ZipFile]::OpenRead($winZip)
           $z2.Entries | Where-Object { $_.Name -like "libz3*" } | ForEach-Object {
             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, "$z3Dir\win_x86_64\$($_.Name)", $true)
-            Copy-Item "$z3Dir\win_x86_64\$($_.Name)" "$z3Dir\win_arm_64\$($_.Name)"
           }
           $z2.Dispose()
+          $z3 = [System.IO.Compression.ZipFile]::OpenRead($winArmZip)
+          $z3.Entries | Where-Object { $_.Name -like "libz3*" } | ForEach-Object {
+            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, "$z3Dir\win_arm_64\$($_.Name)", $true)
+          }
+          $z3.Dispose()
           Write-Output "::endgroup::"
 
           # ---- Python wheels for Debugger-rmi-trace ----
