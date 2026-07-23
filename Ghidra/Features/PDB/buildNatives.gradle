@@ -22,21 +22,28 @@ if (findProject(':Generic') == null) {
 	apply from: "../../../GPL/nativeBuildProperties.gradle"
 }
 
-if ("win_x86_64".equals(getCurrentPlatformName())) {
+if (isCurrentWindows()) {
 
-	String makeName = "win_x86_64PDBMake"
+	def pdbPlatform = getCurrentPlatformName()
+	if (pdbPlatform != "win_x86_64" && pdbPlatform != "win_arm_64") {
+		return
+	}
+	def msbuildPlatform = pdbPlatform == "win_arm_64" ? "ARM64" : "x64"
+
+	String makeName = "${pdbPlatform}PDBMake"
 	task(type: Exec, makeName) {
 
 		def projectPath = projectDir.toString()
 		def solutionBatchFilePath = projectPath + "/build/buildSolution.bat"
 		def projectPathWindows = projectPath.replace("/", File.separator)
 		def solutionPathWindows = "\"${projectPathWindows}\\src\\pdb\\pdb.sln\""
+		def outDir = "build/os/${pdbPlatform}"
 		
 		doFirst {
-			file("build/os/win_x86_64").mkdirs()
+			file(outDir).mkdirs()
 			
 			def windowsTargetPlatformVersion = VISUAL_STUDIO_SDK_VERSION_OVERRIDE ?: VISUAL_STUDIO_SDK_VERSION_DEFAULT		
-			def msbuildCmd = "msbuild ${solutionPathWindows} /p:Configuration=Release /p:WindowsTargetPlatformVersion=${windowsTargetPlatformVersion}"
+			def msbuildCmd = "msbuild ${solutionPathWindows} /p:Configuration=Release /p:Platform=${msbuildPlatform} /p:WindowsTargetPlatformVersion=${windowsTargetPlatformVersion}"
 			
 			println "Executing: " + msbuildCmd
 			
@@ -47,7 +54,7 @@ if ("win_x86_64".equals(getCurrentPlatformName())) {
 		}
 		
 		doLast {
-			assert file("build/os/win_x86_64/pdb.exe").exists() : "Failed to build pdb.exe"
+			assert file("${outDir}/pdb.exe").exists() : "Failed to build pdb.exe for ${pdbPlatform}"
 		}
 		
 		executable "cmd"

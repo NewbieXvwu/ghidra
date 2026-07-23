@@ -122,9 +122,7 @@ jobs:
           # ---- Python wheels for Debugger-agent-dbgeng ----
           Write-Output "::group::Debugger-agent-dbgeng wheels"
           dl "https://files.pythonhosted.org/packages/5e/a2/52084698c0a3c7e7a94ddfff26f83df09a50781b8436f6f203f5de0a457c/pybag-2.2.16-py3-none-any.whl" "$dbgDir\pybag-2.2.16-py3-none-any.whl"
-          dl "https://files.pythonhosted.org/packages/da/72/ff7894c2fb5716d9a3ce9c27ba34b29d991a11d8442d2ef0fcdc5564ba7e/capstone-5.0.6-py3-none-win_amd64.whl" "$dbgDir\capstone-5.0.6-py3-none-win_amd64.whl"
           dl "https://files.pythonhosted.org/packages/66/95/f30c80615fda0d3c0ee6493ac9db61183313b43499b62dec136773b0e870/comtypes-1.4.13-py3-none-any.whl" "$dbgDir\comtypes-1.4.13-py3-none-any.whl"
-          dl "https://files.pythonhosted.org/packages/90/4b/07c77d8ba0e01349358082713400435347df8426208171ce297da32c313d/pywin32-311-cp314-cp314-win_amd64.whl" "$dbgDir\pywin32-311-cp314-cp314-win_amd64.whl"
           dl "https://files.pythonhosted.org/packages/92/3a/658eb3ba88f067662be280f8f1aec07a70c96bac77e9edc48b1be38e446b/win32more-0.7.0-py3-none-any.whl" "$dbgDir\win32more-0.7.0-py3-none-any.whl"
           dl "https://files.pythonhosted.org/packages/f6/49/cff21fc3adcac1fe19f9f2e50278553fe13b9ac702be569c97f85292481d/win32more_appsdk-0.7.3-py2.py3-none-any.whl" "$dbgDir\win32more_appsdk-0.7.3-py2.py3-none-any.whl"
           dl "https://files.pythonhosted.org/packages/81/bc/7c1c5609f835d3e719c944714638a7a70bbfef6b990c251c32c1cd82d67a/win32more_core-0.7.0-py2.py3-none-any.whl" "$dbgDir\win32more_core-0.7.0-py2.py3-none-any.whl"
@@ -133,6 +131,17 @@ jobs:
           dl "https://files.pythonhosted.org/packages/56/d7/0bb36964811a23f262cdddb1e5b91fdbd2f494990d48e657f15108f04855/win32more_microsoft_windows_sdk_contracts-0.7.10.0.26100.6901-py2.py3-none-any.whl" "$dbgDir\win32more_microsoft_windows_sdk_contracts-0.7.10.0.26100.6901-py2.py3-none-any.whl"
           dl "https://files.pythonhosted.org/packages/e5/37/8706eb126fc52e59526304aa89ee30771a894e489aa0ea835f101e499b17/win32more_microsoft_windows_sdk_win32metadata-0.7.68.0.4-py2.py3-none-any.whl" "$dbgDir\win32more_microsoft_windows_sdk_win32metadata-0.7.68.0.4-py2.py3-none-any.whl"
           dl "https://files.pythonhosted.org/packages/ef/7c/9630708dd252e0c5c7c9975d52ba0deea996e9b0cf29784d521ac30f3a48/win32more_microsoft_windowsappsdk-0.7.1.8.251106002-py2.py3-none-any.whl" "$dbgDir\win32more_microsoft_windowsappsdk-0.7.1.8.251106002-py2.py3-none-any.whl"
+          # capstone and pywin32 have no win_arm64 wheels; build from source on ARM64
+          $arch = (Get-WmiObject Win32_Processor).Architecture
+          if ($arch -eq 12) {  # ARM64
+            Write-Output "Building capstone from source for ARM64 ..."
+            pip wheel --wheel-dir "$dbgDir" "capstone==5.0.6" 2>&1
+            Write-Output "Building pywin32 from source for ARM64 ..."
+            pip wheel --wheel-dir "$dbgDir" "pywin32==311" 2>&1
+          } else {
+            dl "https://files.pythonhosted.org/packages/da/72/ff7894c2fb5716d9a3ce9c27ba34b29d991a11d8442d2ef0fcdc5564ba7e/capstone-5.0.6-py3-none-win_amd64.whl" "$dbgDir\capstone-5.0.6-py3-none-win_amd64.whl"
+            dl "https://files.pythonhosted.org/packages/90/4b/07c77d8ba0e01349358082713400435347df8426208171ce297da32c313d/pywin32-311-cp314-cp314-win_amd64.whl" "$dbgDir\pywin32-311-cp314-cp314-win_amd64.whl"
+          }
           Write-Output "::endgroup::"
 
           # ---- Python wheels for PyGhidra ----
