@@ -131,13 +131,28 @@ jobs:
           dl "https://files.pythonhosted.org/packages/56/d7/0bb36964811a23f262cdddb1e5b91fdbd2f494990d48e657f15108f04855/win32more_microsoft_windows_sdk_contracts-0.7.10.0.26100.6901-py2.py3-none-any.whl" "$dbgDir\win32more_microsoft_windows_sdk_contracts-0.7.10.0.26100.6901-py2.py3-none-any.whl"
           dl "https://files.pythonhosted.org/packages/e5/37/8706eb126fc52e59526304aa89ee30771a894e489aa0ea835f101e499b17/win32more_microsoft_windows_sdk_win32metadata-0.7.68.0.4-py2.py3-none-any.whl" "$dbgDir\win32more_microsoft_windows_sdk_win32metadata-0.7.68.0.4-py2.py3-none-any.whl"
           dl "https://files.pythonhosted.org/packages/ef/7c/9630708dd252e0c5c7c9975d52ba0deea996e9b0cf29784d521ac30f3a48/win32more_microsoft_windowsappsdk-0.7.1.8.251106002-py2.py3-none-any.whl" "$dbgDir\win32more_microsoft_windowsappsdk-0.7.1.8.251106002-py2.py3-none-any.whl"
-          # capstone and pywin32 have no win_arm64 wheels; build from source on ARM64
+          # capstone, pywin32, and jpype1 have no win_arm64 wheels; build from source
           $arch = (Get-WmiObject Win32_Processor).Architecture
           if ($arch -eq 12) {  # ARM64
             Write-Output "Building capstone from source for ARM64 ..."
             pip wheel --wheel-dir "$dbgDir" "capstone==5.0.6" 2>&1
             Write-Output "Building pywin32 from source for ARM64 ..."
             pip wheel --wheel-dir "$dbgDir" "pywin32==311" 2>&1
+            Write-Output "Building jpype1 from source for ARM64 ..."
+            pip wheel --wheel-dir "$pyDir" "jpype1==1.5.2" 2>&1
+            # Rename ARM64 wheels to the filenames expected by distributePyDep
+            Get-ChildItem "$dbgDir\capstone-*.whl" | ForEach-Object {
+              $old = "$dbgDir\capstone-5.0.6-py3-none-win_amd64.whl"
+              if ($_.FullName -ne $old) { Copy-Item $_.FullName $old -Force }
+            }
+            Get-ChildItem "$dbgDir\pywin32-311-*.whl" | ForEach-Object {
+              $old = "$dbgDir\pywin32-311-cp314-cp314-win_amd64.whl"
+              if ($_.FullName -ne $old) { Copy-Item $_.FullName $old -Force }
+            }
+            Get-ChildItem "$pyDir\jpype1-1.5.2-*.whl" | ForEach-Object {
+              $old = "$pyDir\jpype1-1.5.2-cp314-cp314-win_amd64.whl"
+              if ($_.FullName -ne $old) { Copy-Item $_.FullName $old -Force }
+            }
           } else {
             dl "https://files.pythonhosted.org/packages/da/72/ff7894c2fb5716d9a3ce9c27ba34b29d991a11d8442d2ef0fcdc5564ba7e/capstone-5.0.6-py3-none-win_amd64.whl" "$dbgDir\capstone-5.0.6-py3-none-win_amd64.whl"
             dl "https://files.pythonhosted.org/packages/90/4b/07c77d8ba0e01349358082713400435347df8426208171ce297da32c313d/pywin32-311-cp314-cp314-win_amd64.whl" "$dbgDir\pywin32-311-cp314-cp314-win_amd64.whl"
