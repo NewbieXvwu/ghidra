@@ -175,10 +175,11 @@ jobs:
           $ver = "4.31.0"
           Write-Output "Downloading protobuf $ver source ..."
           curl.exe -L -o "$env:RUNNER_TEMP\protobuf.zip" `
-            "https://github.com/protocolbuffers/protobuf/releases/download/v$ver/protobuf-$ver.zip"
+            "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v$ver.zip"
           Expand-Archive -Path "$env:RUNNER_TEMP\protobuf.zip" -DestinationPath "$env:RUNNER_TEMP\" -Force
           Remove-Item -Force "$env:RUNNER_TEMP\protobuf.zip"
           $srcDir = Get-ChildItem "$env:RUNNER_TEMP\protobuf-*" | Select-Object -First 1 -ExpandProperty FullName
+          Write-Output "Source directory: ${srcDir}"
           $buildDir = "$env:RUNNER_TEMP\protobuf-arm64"
           Write-Output "Building protoc from source for ARM64 ..."
           cmake -S "$srcDir\cmake" -B "$buildDir" `
